@@ -87,6 +87,11 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
           rm -f "$P12"
 
+          # codesign only finds identities in keychains on the search list,
+          # even when --keychain names one explicitly.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security find-identity "$KEYCHAIN"
+
           # Select the identity by the hash of the certificate committed in
           # this repo. If the secret holds a different key, signing fails here
           # instead of producing a binary the launcher would reject.
