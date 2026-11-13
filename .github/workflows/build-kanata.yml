@@ -1,11 +1,19 @@
 name: Build and sign kanata
 
-# Builds kanata from an upstream release tag, signs it, publishes it as a
-# release in this repository, and points Formula/kanata.rb at it.
+# Builds kanata from an upstream release tag, wraps it in Kanata.app, signs
+# (and notarizes) it, publishes it as a release in this repository, and points
+# Casks/kanata.rb at it.
 #
-# Every release is signed with the same certificate and the same identifier.
-# macOS ties a privacy grant (Input Monitoring, Accessibility) to that pair
-# rather than to one build, so the grant carries over when kanata is upgraded.
+# Every release has the same bundle identifier and the same signer. macOS ties
+# a privacy grant (Input Monitoring, Accessibility) to that pair rather than
+# to one build, so the grant carries over when kanata is upgraded.
+#
+# Secrets:
+#   SIGNING_P12_BASE64    Developer ID Application certificate and key (.p12), base64
+#   SIGNING_P12_PASSWORD  password of that .p12
+#   ASC_KEY_ID            App Store Connect API key ID        (notarization)
+#   ASC_ISSUER_ID         App Store Connect API issuer ID     (notarization)
+#   ASC_PRIVATE_KEY       contents of the AuthKey_<id>.p8 file (notarization)
 
 on:
   workflow_dispatch:
@@ -14,14 +22,19 @@ on:
         description: "kanata version to build, without the leading v (for example 1.12.0)"
         required: true
         type: string
+      notarize:
+        description: "Notarize and staple (needs a Developer ID and the ASC_* secrets)"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
-  contents: write # publish the release and push the formula update
+  contents: write # publish the release and push the cask update
 
 env:
   VERSION: ${{ inputs.version }}
   TAG: kanata-v${{ inputs.version }}
-  ASSET: kanata-${{ inputs.version }}-arm64-apple-darwin.tar.gz
+  ASSET: Kanata-${{ inputs.version }}.zip
 
 jobs:
   build:
@@ -42,46 +55,65 @@ jobs:
         working-directory: kanata-src
         run: cargo build --release --locked
 
-      - name: Write signing certificate
+      - name: Assemble Kanata.app
+        run: |
+          mkdir -p Kanata.app/Contents/MacOS Kanata.app/Contents/Resources
+          cp kanata-src/target/release/kanata Kanata.app/Contents/MacOS/kanata
+          cp kanata-src/LICENSE Kanata.app/Contents/Resources/LICENSE
+          cp app/Info.plist Kanata.app/Contents/Info.plist
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleShortVersionString $VERSION" \
+            -c "Set :CFBundleVersion $VERSION" \
+            Kanata.app/Contents/Info.plist
+
+      - name: Write signing credentials
         env:
           SIGNING_P12_BASE64: ${{ secrets.SIGNING_P12_BASE64 }}
-        run: printf '%s' "$SIGNING_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          printf '%s' "$SIGNING_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          # Where the notarization tool looks for the App Store Connect key.
+          mkdir -p ~/.appstoreconnect/private_keys
+          printf '%s\n' "$ASC_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/"AuthKey_$ASC_KEY_ID.p8"
 
       # Pinned to a commit because this step handles the private key.
-      - name: Sign kanata
+      - name: Sign Kanata.app
         uses: indygreg/apple-code-sign-action@5e7a4a01fe4dffe948ef3bcf1f4538d963cb0c72 # v1.2
         with:
-          input_path: kanata-src/target/release/kanata
+          input_path: Kanata.app
           p12_file: ${{ runner.temp }}/signing.p12
           p12_password: ${{ secrets.SIGNING_P12_PASSWORD }}
-          # The identifier must stay the same in every release: changing it
-          # makes macOS treat kanata as a different program.
+          notarize: ${{ inputs.notarize }}
+          staple: ${{ inputs.notarize }}
+          app_store_connect_api_issuer: ${{ secrets.ASC_ISSUER_ID }}
+          app_store_connect_api_key: ${{ secrets.ASC_KEY_ID }}
+          # Hardened runtime, which notarization requires. One argument per line.
           sign_args: |
-            --binary-identifier
-            com.bryanmarty.kanata
+            --code-signature-flags
+            runtime
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          rm -f "$RUNNER_TEMP/signing.p12"
-          cp kanata-src/target/release/kanata kanata-src/LICENSE .
-          tar -czf "$ASSET" kanata LICENSE
+          rm -rf "$RUNNER_TEMP/signing.p12" ~/.appstoreconnect
+          # ditto keeps the bundle's signature and notarization ticket intact.
+          ditto -c -k --keepParent Kanata.app "$ASSET"
           # Create the release, or replace the asset if it already exists.
           gh release create "$TAG" "$ASSET" --title "kanata $VERSION" \
-            --notes "kanata $VERSION for Apple silicon, built from https://github.com/jtroo/kanata/tree/v$VERSION and signed." \
+            --notes "Kanata.app $VERSION for Apple silicon, built from https://github.com/jtroo/kanata/tree/v$VERSION and signed." \
             || gh release upload "$TAG" "$ASSET" --clobber
 
-      - name: Point the formula at the release
+      - name: Point the cask at the release
         run: |
           SHA256="$(shasum -a 256 "$ASSET" | cut -d' ' -f1)"
           sed -i '' -E \
-            -e "s|^  url .*|  url \"https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET\"|" \
             -e "s|^  version .*|  version \"$VERSION\"|" \
             -e "s|^  sha256 .*|  sha256 \"$SHA256\"|" \
-            Formula/kanata.rb
+            Casks/kanata.rb
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/kanata.rb
+          git add Casks/kanata.rb
           git diff --cached --quiet || git commit -m "kanata $VERSION"
           git push

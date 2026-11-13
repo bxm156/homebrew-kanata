@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- macOS ties privacy grants (Input Monitoring, Accessibility) for an app
+       to this identifier and the signature. Never change it: a different
+       identifier is a different app, and the grants would have to be redone. -->
+  <key>CFBundleIdentifier</key>
+  <string>com.bryanmarty.kanata</string>
+  <key>CFBundleName</key>
+  <string>Kanata</string>
+  <key>CFBundleExecutable</key>
+  <string>kanata</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <!-- Both version values are set by the build workflow. -->
+  <key>CFBundleShortVersionString</key>
+  <string>0.0.0</string>
+  <key>CFBundleVersion</key>
+  <string>0.0.0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>11.0</string>
+  <!-- kanata is a command-line program; keep it out of the Dock. -->
+  <key>LSUIElement</key>
+  <true/>
+</dict>
+</plist>
