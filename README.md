@@ -13,8 +13,8 @@ Status: the workflow and cask are in place. That the permissions survive an upgr
 ## Install
 
 ```sh
-brew tap bxm156/kanata-launch https://github.com/bxm156/kanata-launch
-brew install --cask bxm156/kanata-launch/kanata
+brew tap bxm156/kanata
+brew install --cask bxm156/kanata/kanata
 ```
 
 kanata is a command-line program inside the bundle. Run it as:
@@ -28,7 +28,7 @@ Grant **Kanata** Input Monitoring and Accessibility in System Settings → Priva
 ## Releasing a new kanata version
 
 ```sh
-gh workflow run build-kanata.yml -R bxm156/kanata-launch -f version=1.13.0
+gh workflow run build-kanata.yml -R bxm156/homebrew-kanata -f version=1.13.0
 ```
 
 When it finishes, `brew update && brew upgrade --cask kanata`, then restart kanata.
