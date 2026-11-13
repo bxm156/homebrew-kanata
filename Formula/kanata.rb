@@ -16,7 +16,8 @@ class Kanata < Formula
     bin.install "kanata"
   end
 
-  def post_install
+  # Declarative post-install steps; Homebrew has deprecated `def post_install`.
+  post_install_steps do
     # macOS ties a privacy grant to the real path of a binary, and Homebrew's
     # real path changes with every version (Cellar/kanata/<version>/...).
     # Symlinks such as bin/kanata do not help, because macOS resolves them.
@@ -24,14 +25,14 @@ class Kanata < Formula
     # It is named kanata-signed so it is not mistaken for an upstream build.
     #
     # The copy goes straight into #{HOMEBREW_PREFIX}/bin as a real file, next
-    # to the symlinks Homebrew manages there. Homebrew does not track it, so
-    # `brew uninstall` leaves it behind; delete it by hand if you remove kanata.
-    stable = HOMEBREW_PREFIX/"bin"
-    # Write a new file and rename it into place: overwriting a signed binary
-    # in place can make macOS reject its signature.
-    cp bin/"kanata", stable/"kanata-signed.new"
-    chmod 0755, stable/"kanata-signed.new"
-    File.rename(stable/"kanata-signed.new", stable/"kanata-signed")
+    # to the symlinks Homebrew manages there. Homebrew does not track it and
+    # formulae have no uninstall hook, so `brew uninstall` leaves it behind;
+    # delete it by hand if you remove kanata.
+    #
+    # Remove the old copy first so the new one is a fresh file: overwriting a
+    # signed binary in place can make macOS reject its signature.
+    remove "bin/kanata-signed", base: :homebrew_prefix
+    copy "bin/kanata", "bin/kanata-signed", target_base: :homebrew_prefix
   end
 
   def caveats
