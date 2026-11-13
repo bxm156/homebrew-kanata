@@ -55,8 +55,11 @@ class Kanata < Formula
     # Symlinks such as bin/kanata do not help, because macOS resolves them.
     # So keep a copy at a path that never changes and run kanata from there.
     # It is named kanata-signed so it is not mistaken for an upstream build.
-    stable = var/"kanata"
-    stable.mkpath
+    #
+    # The copy goes straight into #{HOMEBREW_PREFIX}/bin as a real file, next
+    # to the symlinks Homebrew manages there. Homebrew does not track it, so
+    # \`brew uninstall\` leaves it behind; delete it by hand if you remove kanata.
+    stable = HOMEBREW_PREFIX/"bin"
     # Write a new file and rename it into place: overwriting a signed binary
     # in place can make macOS reject its signature.
     cp bin/"kanata", stable/"kanata-signed.new"
@@ -67,7 +70,7 @@ class Kanata < Formula
   def caveats
     <<~EOS
       Run kanata from this path, which stays the same across upgrades:
-        #{var}/kanata/kanata-signed
+        #{HOMEBREW_PREFIX}/bin/kanata-signed
 
       Grant that file Input Monitoring and Accessibility once, in
       System Settings -> Privacy & Security. The grant follows the signature,

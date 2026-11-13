@@ -4,7 +4,7 @@ macOS launcher that makes itself the "responsible process" for kanata, so the In
 
 ## Direction change (in progress)
 
-The launcher is being retired in favour of relying on kanata's own signature: CI signs every build with the same self-signed certificate and identifier, and kanata runs from a fixed path (`$(brew --prefix)/var/kanata/kanata-signed`, copied there by the formula's `post_install`). See the README section of the same name.
+The launcher is being retired in favour of relying on kanata's own signature: CI signs every build with the same self-signed certificate and identifier, and kanata runs from a fixed path (`$(brew --prefix)/bin/kanata-signed`, copied there by the formula's `post_install`). See the README section of the same name.
 
 - macOS matches the privacy grant against the identifier (`SIGN_IDENTIFIER` in the workflow, `com.bryanmarty.kanata`), the signing certificate (`signing/kanata-signing-cert.pem`), and the binary's path. Changing any of the three forces a re-grant.
 - The owner considered a Developer ID certificate and chose the self-signed one.
