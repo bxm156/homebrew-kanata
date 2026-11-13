@@ -38,20 +38,26 @@ permissions:
   contents: write # publish the release and push the cask update
 
 jobs:
-  # Decide which version to build, if any. Runs on Linux so the daily check
-  # does not start a macOS runner when there is nothing to do.
+  # Decide which version to build, if any, using Homebrew's own livecheck and
+  # the `livecheck` block in the cask. Runs on macOS because Homebrew only
+  # handles casks there.
   check:
-    runs-on: ubuntu-latest
+    runs-on: macos-26
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.pick.outputs.version }}
     steps:
       - name: Check out this tap
         uses: actions/checkout@v7
 
+      # Installs Homebrew's latest code and registers this checkout as the tap.
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@63a2d4d8d4193eab3e62b1b782ff3ab8408f5b29 # 2026.11.09.1
+
       - name: Pick the version to build
         id: pick
         env:
-          GH_TOKEN: ${{ github.token }}
           REQUESTED: ${{ inputs.version }}
         run: |
           # A version given by hand is built as asked, even if it is not newer.
@@ -60,14 +66,12 @@ jobs:
             exit 0
           fi
 
-          OURS="$(sed -nE 's/^  version "(.*)"/\1/p' Casks/kanata.rb)"
-          # "latest" on GitHub skips pre-releases.
-          LATEST="$(gh api repos/jtroo/kanata/releases/latest --jq .tag_name | sed 's/^v//')"
-          echo "cask has $OURS, upstream latest is $LATEST"
+          # Shows the cask's version and upstream's latest in the log.
+          brew livecheck --cask bxm156/kanata/kanata
 
-          # Build only if upstream is strictly newer (sort -V orders versions).
-          NEWEST="$(printf '%s\n%s\n' "$OURS" "$LATEST" | sort -V | tail -1)"
-          if [ "$LATEST" != "$OURS" ] && [ "$NEWEST" = "$LATEST" ]; then
+          # With --newer-only the list is empty unless upstream is newer.
+          LATEST="$(brew livecheck --cask --newer-only --json bxm156/kanata/kanata | jq -r '.[0].version.latest // empty')"
+          if [ -n "$LATEST" ]; then
             echo "version=$LATEST" >> "$GITHUB_OUTPUT"
           else
             echo "Nothing to build."

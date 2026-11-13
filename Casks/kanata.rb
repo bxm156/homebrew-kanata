@@ -8,6 +8,14 @@ cask "kanata" do
   desc "Keyboard remapper, built from upstream source and signed"
   homepage "https://github.com/jtroo/kanata"
 
+  # Tells `brew livecheck` where new versions come from: upstream's latest
+  # release (pre-releases are skipped), not this tap's own releases. The build
+  # workflow uses it to decide when to build.
+  livecheck do
+    url "https://github.com/jtroo/kanata"
+    strategy :github_latest
+  end
+
   depends_on arch: :arm64
 
   # Installed to /Applications/Kanata.app: a fixed path, removed on uninstall.

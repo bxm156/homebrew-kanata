@@ -27,7 +27,7 @@ Grant **Kanata** Input Monitoring and Accessibility in System Settings → Priva
 
 ## New kanata versions
 
-The workflow runs once a day. It compares the latest upstream kanata release (pre-releases are ignored) with the version in the cask and, if upstream is newer, builds, signs and publishes it. Scheduled builds are signed but not notarized.
+The workflow runs once a day. It uses `brew livecheck` and the cask's `livecheck` block to compare the latest upstream kanata release (pre-releases are ignored) with the version in the cask and, if upstream is newer, builds, signs and publishes it. Scheduled builds are signed but not notarized.
 
 On your Mac, pick up a new build with `brew update && brew upgrade --cask kanata`, then restart kanata.
 

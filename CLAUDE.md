@@ -16,6 +16,7 @@ Homebrew tap that ships kanata as a signed `Kanata.app`, built from upstream sou
 - **Do not change the bundle identifier** (`com.bryanmarty.kanata` in `app/Info.plist`), the app name, or the signing certificate. macOS matches the privacy grant against the identifier and signer; changing either forces the owner to re-grant by hand.
 - **The workflow runs on a daily schedule and by hand, nothing else.** Never add `pull_request` or `push` triggers (they would run untrusted changes next to the signing secrets), and never echo the secrets. The owner chose the schedule knowing it signs whatever upstream releases without review.
 - Keep `version` and `sha256` each on their own line in the cask, indented two spaces: the workflow updates them with `sed`. The `url` is derived from `version`.
+- Keep the cask's `livecheck` block pointing at upstream (`jtroo/kanata`). The workflow's check job runs `brew livecheck` against it to decide whether to build; without it Homebrew would check this tap's own releases and never find anything new.
 - The workflow commits to `main`, so pull before making local changes.
 
 ## Not yet verified
