@@ -1,3 +1,0 @@
-# Built binary: machine-specific paths are compiled in, and the macOS privacy
-# grant is tied to the local build.
-kanata-launch
