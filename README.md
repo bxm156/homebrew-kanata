@@ -25,13 +25,20 @@ kanata is a command-line program inside the bundle. Run it as:
 
 Grant **Kanata** Input Monitoring and Accessibility in System Settings → Privacy & Security.
 
-## Releasing a new kanata version
+## New kanata versions
+
+The workflow runs once a day. It compares the latest upstream kanata release (pre-releases are ignored) with the version in the cask and, if upstream is newer, builds, signs and publishes it. Scheduled builds are signed but not notarized.
+
+On your Mac, pick up a new build with `brew update && brew upgrade --cask kanata`, then restart kanata.
+
+To build by hand, for the latest release or a specific version:
 
 ```sh
+gh workflow run build-kanata.yml -R bxm156/homebrew-kanata
 gh workflow run build-kanata.yml -R bxm156/homebrew-kanata -f version=1.13.0
 ```
 
-When it finishes, `brew update && brew upgrade --cask kanata`, then restart kanata.
+GitHub pauses scheduled workflows in a repository with no activity for 60 days; re-enable it from the Actions tab if that happens.
 
 ## Signing
 

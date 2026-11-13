@@ -4,6 +4,10 @@ name: Build and sign kanata
 # (and notarizes) it, publishes it as a release in this repository, and points
 # Casks/kanata.rb at it.
 #
+# Runs once a day and builds only when upstream has released a kanata version
+# newer than the one in the cask. It can also be started by hand, optionally
+# for a specific version.
+#
 # Every release has the same bundle identifier and the same signer. macOS ties
 # a privacy grant (Input Monitoring, Accessibility) to that pair rather than
 # to one build, so the grant carries over when kanata is upgraded.
@@ -16,11 +20,13 @@ name: Build and sign kanata
 #   ASC_PRIVATE_KEY       contents of the AuthKey_<id>.p8 file (notarization)
 
 on:
+  schedule:
+    - cron: "17 9 * * *" # daily, 09:17 UTC
   workflow_dispatch:
     inputs:
       version:
-        description: "kanata version to build, without the leading v (for example 1.12.0)"
-        required: true
+        description: "kanata version to build, without the leading v. Leave empty to build the latest upstream release if it is newer than the cask."
+        required: false
         type: string
       notarize:
         description: "Notarize and staple (needs a Developer ID and the ASC_* secrets)"
@@ -31,14 +37,50 @@ on:
 permissions:
   contents: write # publish the release and push the cask update
 
-env:
-  VERSION: ${{ inputs.version }}
-  TAG: kanata-v${{ inputs.version }}
-  ASSET: Kanata-${{ inputs.version }}.zip
-
 jobs:
+  # Decide which version to build, if any. Runs on Linux so the daily check
+  # does not start a macOS runner when there is nothing to do.
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.pick.outputs.version }}
+    steps:
+      - name: Check out this tap
+        uses: actions/checkout@v7
+
+      - name: Pick the version to build
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          # A version given by hand is built as asked, even if it is not newer.
+          if [ -n "$REQUESTED" ]; then
+            echo "version=$REQUESTED" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          OURS="$(sed -nE 's/^  version "(.*)"/\1/p' Casks/kanata.rb)"
+          # "latest" on GitHub skips pre-releases.
+          LATEST="$(gh api repos/jtroo/kanata/releases/latest --jq .tag_name | sed 's/^v//')"
+          echo "cask has $OURS, upstream latest is $LATEST"
+
+          # Build only if upstream is strictly newer (sort -V orders versions).
+          NEWEST="$(printf '%s\n%s\n' "$OURS" "$LATEST" | sort -V | tail -1)"
+          if [ "$LATEST" != "$OURS" ] && [ "$NEWEST" = "$LATEST" ]; then
+            echo "version=$LATEST" >> "$GITHUB_OUTPUT"
+          else
+            echo "Nothing to build."
+          fi
+
   build:
+    needs: check
+    if: needs.check.outputs.version != ''
     runs-on: macos-26 # Apple silicon
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TAG: kanata-v${{ needs.check.outputs.version }}
+      ASSET: Kanata-${{ needs.check.outputs.version }}.zip
     steps:
       - name: Check out this tap
         uses: actions/checkout@v7
@@ -47,7 +89,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: jtroo/kanata
-          ref: v${{ inputs.version }}
+          ref: v${{ needs.check.outputs.version }}
           path: kanata-src
           persist-credentials: false
 
@@ -78,14 +120,15 @@ jobs:
           printf '%s\n' "$ASC_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/"AuthKey_$ASC_KEY_ID.p8"
 
       # Pinned to a commit because this step handles the private key.
+      # Scheduled runs have no inputs, so they sign without notarizing.
       - name: Sign Kanata.app
         uses: indygreg/apple-code-sign-action@5e7a4a01fe4dffe948ef3bcf1f4538d963cb0c72 # v1.2
         with:
           input_path: Kanata.app
           p12_file: ${{ runner.temp }}/signing.p12
           p12_password: ${{ secrets.SIGNING_P12_PASSWORD }}
-          notarize: ${{ inputs.notarize }}
-          staple: ${{ inputs.notarize }}
+          notarize: ${{ inputs.notarize || false }}
+          staple: ${{ inputs.notarize || false }}
           app_store_connect_api_issuer: ${{ secrets.ASC_ISSUER_ID }}
           app_store_connect_api_key: ${{ secrets.ASC_KEY_ID }}
           # Hardened runtime, which notarization requires. One argument per line.
