@@ -41,10 +41,10 @@ jobs:
     runs-on: macos-26 # Apple silicon
     steps:
       - name: Check out this tap
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check out kanata source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: jtroo/kanata
           ref: v${{ inputs.version }}
