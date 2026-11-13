@@ -2,10 +2,11 @@
 class Kanata < Formula
   desc "Keyboard remapper, built from upstream source and signed in CI"
   homepage "https://github.com/jtroo/kanata"
-  url "https://github.com/bxm156/kanata-launch/releases/download/kanata-v1.12.0/kanata-1.12.0-arm64-apple-darwin.tar.gz"
+  url "https://github.com/bxm156/kanata-launch/releases/download/kanata-v1.12.0_1/kanata-1.12.0_1-arm64-apple-darwin.tar.gz"
   version "1.12.0"
-  sha256 "d787a2e139991d77f92f7916f879c86fd3c82b54d24010dbc97835be6671725a"
+  sha256 "fc7ade029f78374027020249b4c08f39afc8289800324a472dc250fd7d66eb9b"
   license "LGPL-3.0-only"
+  revision 1
 
   depends_on arch: :arm64
   depends_on :macos
