@@ -1,7 +1,7 @@
 cask "kanata" do
   # version and sha256 are updated by .github/workflows/build-kanata.yml.
-  version "0.0.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  version "1.12.0"
+  sha256 "0bb0c10b9d9fcfe3ed96424fd487ed9a5f7631d05982aebea1f22e3718f23fd9"
 
   url "https://github.com/bxm156/kanata-launch/releases/download/kanata-v#{version}/Kanata-#{version}.zip"
   name "Kanata"
