@@ -99,50 +99,53 @@ jobs:
         # Default features, same as the Homebrew core formula.
         run: cargo build --release --locked
 
-      - name: Sign kanata
+      - name: Write signing certificate
         env:
           SIGNING_P12_BASE64: ${{ secrets.SIGNING_P12_BASE64 }}
-          SIGNING_P12_PASSWORD: ${{ secrets.SIGNING_P12_PASSWORD }}
+        run: printf '%s' "$SIGNING_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+
+      # Signs with rcodesign, which reads the .p12 directly, so no keychain
+      # has to be created, unlocked or put on the search list.
+      # Pinned to a commit because this step handles the private key.
+      - name: Sign kanata
+        uses: indygreg/apple-code-sign-action@5e7a4a01fe4dffe948ef3bcf1f4538d963cb0c72 # v1.2
+        with:
+          input_path: kanata-src/target/release/kanata
+          p12_file: ${{ runner.temp }}/signing.p12
+          p12_password: ${{ secrets.SIGNING_P12_PASSWORD }}
+          # One argument per line, passed to `rcodesign sign`.
+          sign_args: |
+            --binary-identifier
+            ${{ env.SIGN_IDENTIFIER }}
+
+      - name: Remove signing certificate
+        if: always()
+        run: rm -f "$RUNNER_TEMP/signing.p12"
+
+      # Check the result with Apple's own codesign, not the tool that signed
+      # it. This is what guarantees the release matches the privacy grant.
+      - name: Verify signature
         run: |
-          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
-          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
-          P12="$RUNNER_TEMP/signing.p12"
-
-          # Temporary keychain holding only the signing identity.
-          printf '%s' "$SIGNING_P12_BASE64" | base64 --decode > "$P12"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 3600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security import "$P12" -k "$KEYCHAIN" -P "$SIGNING_P12_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
-          rm -f "$P12"
-
-          # codesign only finds identities in keychains on the search list,
-          # even when --keychain names one explicitly.
-          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-          # A self-signed certificate is listed as "not trusted" here. That is
-          # expected; codesign can still sign with it.
-          security find-identity "$KEYCHAIN"
-
-          # Select the identity by the hash of the certificate committed in
-          # this repo. If the secret holds a different key, signing fails here
-          # instead of producing a binary whose privacy grant would not match.
           CERT_SHA1="$(openssl x509 -in "$CERT_FILE" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')"
+          REQUIREMENT="identifier \"$SIGN_IDENTIFIER\" and certificate leaf = H\"$CERT_SHA1\""
           BIN=kanata-src/target/release/kanata
 
-          codesign --force --keychain "$KEYCHAIN" --sign "$CERT_SHA1" \
-            --identifier "$SIGN_IDENTIFIER" "$BIN"
+          # Signed with this identifier by the certificate committed in this
+          # repo. If the secret held a different key, this fails.
+          codesign --verify --strict -R="$REQUIREMENT" "$BIN"
 
-          # The requirement every release must satisfy. It is also what macOS
-          # records for the privacy grant.
-          codesign --verify --strict \
-            -R="identifier \"$SIGN_IDENTIFIER\" and certificate leaf = H\"$CERT_SHA1\"" "$BIN"
+          # The designated requirement is what macOS records for the grant, so
+          # it must be exactly this identifier-plus-certificate form in every
+          # release.
+          DESIGNATED="$(codesign -d -r- "$BIN" 2>&1 | grep 'designated =>')"
+          echo "$DESIGNATED"
+          if ! printf '%s' "$DESIGNATED" | grep -qiF "$REQUIREMENT"; then
+            echo "::error::designated requirement is not: $REQUIREMENT"
+            exit 1
+          fi
+
           codesign -dvv "$BIN"
           "$BIN" --version
-
-      - name: Remove signing keychain
-        if: always()
-        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
       - name: Package
         id: package
