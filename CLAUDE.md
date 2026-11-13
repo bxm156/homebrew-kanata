@@ -2,6 +2,15 @@
 
 macOS launcher that makes itself the "responsible process" for kanata, so the Input Monitoring and Accessibility grants sit on this binary instead of on kanata or tmux. It only starts a kanata binary signed by this repository's CI. See [README.md](README.md) for the full explanation.
 
+## Direction change (in progress)
+
+The launcher is being retired in favour of signing kanata itself with a Developer ID in CI and running it from a fixed path (`$(brew --prefix)/var/kanata/kanata`, copied there by the formula's `post_install`). See the README section of the same name.
+
+- The workflow and `scripts/update-formula.sh` already target Developer ID signing. They have not run: the `SIGNING_P12_BASE64` / `SIGNING_P12_PASSWORD` secrets still hold the old self-signed key and must be replaced with a Developer ID Application `.p12` by the repository owner.
+- `SIGN_IDENTIFIER` in the workflow (`com.bryanmarty.kanata`) is part of what macOS matches the grant against. Changing it forces a re-grant.
+- A rebuild of the same kanata version uses the workflow's `revision` input, which produces tag `kanata-v<version>_<n>` and a `revision` line in the formula.
+- Do not remove the launcher, `signing/`, or the launcher sections of the docs until the owner has confirmed that the grant survives an upgrade. Until then the launcher sections below describe the previous design.
+
 ## Files
 
 | Path | Purpose |
