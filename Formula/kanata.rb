@@ -21,19 +21,20 @@ class Kanata < Formula
     # real path changes with every version (Cellar/kanata/<version>/...).
     # Symlinks such as bin/kanata do not help, because macOS resolves them.
     # So keep a copy at a path that never changes and run kanata from there.
+    # It is named kanata-signed so it is not mistaken for an upstream build.
     stable = var/"kanata"
     stable.mkpath
     # Write a new file and rename it into place: overwriting a signed binary
     # in place can make macOS reject its signature.
-    cp bin/"kanata", stable/"kanata.new"
-    chmod 0755, stable/"kanata.new"
-    File.rename(stable/"kanata.new", stable/"kanata")
+    cp bin/"kanata", stable/"kanata-signed.new"
+    chmod 0755, stable/"kanata-signed.new"
+    File.rename(stable/"kanata-signed.new", stable/"kanata-signed")
   end
 
   def caveats
     <<~EOS
       Run kanata from this path, which stays the same across upgrades:
-        #{var}/kanata/kanata
+        #{var}/kanata/kanata-signed
 
       Grant that file Input Monitoring and Accessibility once, in
       System Settings -> Privacy & Security. The grant follows the signature,

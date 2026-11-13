@@ -19,7 +19,7 @@ The repository has three parts:
 The plan is now to drop the launcher and rely on kanata's own signature instead:
 
 - The workflow signs every kanata build with the same self-signed certificate and the same identifier. macOS ties the privacy grant for a certificate-signed binary to that pair, not to one build, so the grant should carry over between versions and a binary signed by anything else should not get it.
-- The formula copies the signed binary to `$(brew --prefix)/var/kanata/kanata`, a path that does not change between versions, because macOS also ties the grant to the binary's real path.
+- The formula copies the signed binary to `$(brew --prefix)/var/kanata/kanata-signed`, a path that does not change between versions, because macOS also ties the grant to the binary's real path.
 - kanata is run directly from that path and granted Input Monitoring and Accessibility once.
 
 State of that work:
