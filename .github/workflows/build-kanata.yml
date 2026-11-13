@@ -127,23 +127,24 @@ jobs:
       - name: Verify signature
         run: |
           CERT_SHA1="$(openssl x509 -in "$CERT_FILE" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')"
-          REQUIREMENT="identifier \"$SIGN_IDENTIFIER\" and certificate leaf = H\"$CERT_SHA1\""
           BIN=kanata-src/target/release/kanata
 
           # Signed with this identifier by the certificate committed in this
           # repo. If the secret held a different key, this fails.
-          codesign --verify --strict -R="$REQUIREMENT" "$BIN"
-
-          # The designated requirement is what macOS records for the grant, so
-          # it must be exactly this identifier-plus-certificate form in every
+          #
+          # macOS records a binary's designated requirement when a privacy
+          # grant is made, and later builds must satisfy it. For a self-signed
+          # certificate that requirement names the certificate either as the
+          # "leaf" or as the "root" of the chain, depending on which tool
+          # signed the binary that was granted (the certificate is both). Check
+          # both forms, so a release matches a grant made against any earlier
           # release.
-          DESIGNATED="$(codesign -d -r- "$BIN" 2>&1 | grep 'designated =>')"
-          echo "$DESIGNATED"
-          if ! printf '%s' "$DESIGNATED" | grep -qiF "$REQUIREMENT"; then
-            echo "::error::designated requirement is not: $REQUIREMENT"
-            exit 1
-          fi
+          for position in leaf root; do
+            codesign --verify --strict \
+              -R="identifier \"$SIGN_IDENTIFIER\" and certificate $position = H\"$CERT_SHA1\"" "$BIN"
+          done
 
+          codesign -d -r- "$BIN"
           codesign -dvv "$BIN"
           "$BIN" --version
 
