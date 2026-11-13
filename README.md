@@ -16,17 +16,17 @@ The repository has three parts:
 
 ## Direction change (in progress)
 
-The plan is now to drop the launcher and rely on a Developer ID signature instead:
+The plan is now to drop the launcher and rely on kanata's own signature instead:
 
-- The workflow signs kanata with a Developer ID certificate. macOS ties the privacy grant for such a binary to its signer and identifier, not to one build, so the grant should carry over between versions and a swapped binary should lose it.
+- The workflow signs every kanata build with the same self-signed certificate and the same identifier. macOS ties the privacy grant for a certificate-signed binary to that pair, not to one build, so the grant should carry over between versions and a binary signed by anything else should not get it.
 - The formula copies the signed binary to `$(brew --prefix)/var/kanata/kanata`, a path that does not change between versions, because macOS also ties the grant to the binary's real path.
 - kanata is run directly from that path and granted Input Monitoring and Accessibility once.
 
 State of that work:
 
-- The workflow and formula are written for Developer ID signing but have **not run yet**: the repository secrets still hold the earlier self-signed certificate, so the workflow fails at the signing step until they are replaced.
+- The workflow and formula are in place, and `kanata-v1.12.0` is signed this way.
 - **Not yet verified:** that the grant survives an upgrade.
-- The launcher described below still works with the existing self-signed `kanata-v1.12.0` release, but it will reject Developer ID builds (it checks for the self-signed certificate). It will be removed once the new approach is verified.
+- The launcher described below is no longer needed for this and will be removed once the new approach is verified. Without it, kanata started inside tmux is attributed to tmux again.
 
 ## Status
 
