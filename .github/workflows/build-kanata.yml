@@ -105,6 +105,9 @@ jobs:
         run: |
           mkdir -p Kanata.app/Contents/MacOS Kanata.app/Contents/Resources
           cp kanata-src/target/release/kanata Kanata.app/Contents/MacOS/kanata
+          clang -O2 -Wall -Werror -mmacosx-version-min=11.0 \
+            -o Kanata.app/Contents/MacOS/kanata-restart-on-attach \
+            app/kanata-restart-on-attach.c
           cp kanata-src/LICENSE Kanata.app/Contents/Resources/LICENSE
           cp app/Info.plist Kanata.app/Contents/Info.plist
           /usr/libexec/PlistBuddy \
