@@ -25,6 +25,51 @@ kanata is a command-line program inside the bundle. Run it as:
 
 Grant **Kanata** Input Monitoring and Accessibility in System Settings → Privacy & Security.
 
+## Restart kanata when a keyboard is plugged in
+
+kanata does not grab a keyboard that connects after it has started, so a replugged keyboard types unmapped until kanata is restarted. The bundle includes a helper, `kanata-restart-on-attach`, that restarts a launchd service; launchd runs it whenever a USB keyboard appears.
+
+If kanata runs as a LaunchAgent labelled `com.kanata`, save this as `~/Library/LaunchAgents/com.kanata.restart-on-attach.plist`, replacing `501` with your user ID (`id -u`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.kanata.restart-on-attach</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Applications/Kanata.app/Contents/MacOS/kanata-restart-on-attach</string>
+    <string>gui/501/com.kanata</string>
+  </array>
+  <key>LaunchEvents</key>
+  <dict>
+    <key>com.apple.iokit.matching</key>
+    <dict>
+      <key>usb-keyboard-attached</key>
+      <dict>
+        <key>IOProviderClass</key>
+        <string>IOHIDDevice</string>
+        <key>Transport</key>
+        <string>USB</string>
+        <key>PrimaryUsagePage</key>
+        <integer>1</integer>
+        <key>PrimaryUsage</key>
+        <integer>6</integer>
+        <key>IOMatchLaunchStream</key>
+        <true/>
+      </dict>
+    </dict>
+  </dict>
+</dict>
+</plist>
+```
+
+Load it with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.kanata.restart-on-attach.plist`.
+
+It restarts kanata about two seconds after any USB keyboard appears, and once when it is loaded for the keyboards already attached. Keep `Transport` set to `USB`: kanata's own virtual keyboard has no transport, so restarting kanata does not trigger another restart. If kanata runs as a LaunchDaemon, install the job in `/Library/LaunchDaemons` and pass `system/<label>` instead.
+
 ## New kanata versions
 
 The workflow runs once a day. It uses `brew livecheck` and the cask's `livecheck` block to compare the latest upstream kanata release (pre-releases are ignored) with the version in the cask and, if upstream is newer, builds, signs and publishes it. Scheduled builds are signed but not notarized.
